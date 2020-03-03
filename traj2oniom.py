@@ -25,6 +25,27 @@ def atname2element(name,resname):
         name = 'Na'
     elif name.upper()[0] == 'N':
         name = 'N'
+    # Manage solvent
+    if   resname.upper() == 'SOL' and name.upper() == 'HO':
+        name = 'H'
+    elif resname.upper() == 'HOH' and name.upper() == 'HO':
+        name = 'H'
+    elif resname.upper() == 'WAT' and name.upper() == 'HO':
+        name = 'H'
+    elif resname.upper() == 'MET' and name.upper() == 'HO':
+        name = 'H'
+    elif resname.upper() == 'ETH' and name.upper() == 'HO':
+        name = 'H'
+    if   resname.upper() == 'SOL' and name.upper() == 'OH':
+        name = 'O'
+    elif resname.upper() == 'HOH' and name.upper() == 'OH':
+        name = 'O'
+    elif resname.upper() == 'WAT' and name.upper() == 'OH':
+        name = 'O'
+    elif resname.upper() == 'MET' and name.upper() == 'OH':
+        name = 'O'
+    elif resname.upper() == 'ETH' and name.upper() == 'OH':
+        name = 'O'
     # Erase numbers and extrange chars
     # (from: https://bytes.com/topic/python/answers/850562-finding-all-numbers-string-replacing)
     name = re.sub('[%s]' % string.digits, '', name)
