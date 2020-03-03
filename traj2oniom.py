@@ -46,6 +46,9 @@ def atname2element(name,resname):
         name = 'O'
     elif resname.upper() == 'ETH' and name.upper() == 'OH':
         name = 'O'
+    # Unambiguous labels
+    if name.upper() == 'HC':
+        name = 'H'
     # Erase numbers and extrange chars
     # (from: https://bytes.com/topic/python/answers/850562-finding-all-numbers-string-replacing)
     name = re.sub('[%s]' % string.digits, '', name)
@@ -246,6 +249,7 @@ if __name__ == "__main__":
             selection += str(num)+' '
         # Apply selection (static)
         try:
+            # Ensure no overlap with QM/MM layers
             selection = '('+selection+') and not ((group selQM) or (group selMM))'
             layerPC = u.select_atoms(selection,selQM=layerQM,selMM=layerMM)
         except:
