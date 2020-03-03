@@ -53,7 +53,8 @@ def read_ndx(fname,section=None):
 
 
 def write_oniom(atomsQM,atomsMM,atomsPC,
-                mem='2gb',nproc=16,chk='snap.chk',method="# hf/sto-3g",chrgemult="0 1",unit=sys.stdout,
+                mem='2gb',nproc=16,chk='snap.chk',
+                method="# hf/sto-3g",chargemult="0 1",unit=sys.stdout,
                 title='Gaussian input from snapshot',FFfile=None):
 
     # Preliminary checks
@@ -73,7 +74,7 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
 
 %s
 
-%s"""%(mem,nproc,chk,method,title,chrgemult)
+%s"""%(mem,nproc,chk,method,title,chargemult)
     print(header,file=unit)
     
     # Print High layer 
@@ -92,18 +93,19 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
              print('%-20s %10.5f %10.5f %10.5f %s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,'L'),file=unit) 
 
         # Print connectivity
+        print("",file=unit)
         for atom in atomsQM.atoms: 
             i1 = atom.index + 1 
             for bonded_atom in atom.bonded_atoms: 
                 i2 = bonded_atom.index + 1 
                 if (i1<i2): 
-                    print('%s %s 1.0'%(i1,i2)) 
+                    print('%s %s 1.0'%(i1,i2),file=unit) 
         for atom in atomsMM.atoms: 
             i1 = atom.index + 1 
             for bonded_atom in atom.bonded_atoms: 
                 i2 = bonded_atom.index + 1 
                 if (i1<i2): 
-                    print('%s %s 1.0'%(i1,i2)) 
+                    print('%s %s 1.0'%(i1,i2),file=unit) 
 
         # Include FF
         if FFfile:
@@ -111,15 +113,14 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
             with open(FFfile) as f:
                 for line in f:
                     if len(line.lstrip()) != 0:
-                        print(line,file=unit)
-            print("",file=unit)
+                        print(line,file=unit,end='')
+    print("",file=unit)
 
     if atomsPC:
         # Print Point Charges
         for atom in atomsPC: 
              print('%10.5f %10.5f %10.5f %10.5f'%(*atom.position,round(atom.charge,5)),file=unit)
-
-    print("",file=unit)
+        print("",file=unit)
 
 
 if __name__ == "__main__":
@@ -142,7 +143,8 @@ if __name__ == "__main__":
     parser.add_argument('-e',help='Last frame (ps) to read from trajectory',type=float,default=-1.)
     parser.add_argument('-dt',help='Only use frame when t MOD dt = first time (ps)',type=float,default=-1.)
     parser.add_argument('-method',help='Whole route section (e.g. "#p hf/sto-3g")',default='#p hf/sto-3g')
-    parser.add_argument('-chargemult',help='Cahrge and multiplicity line (e.g. "0 1 0 1")',default='0 1')
+    parser.add_argument('-chargemult',help='Charge and multiplicity line (e.g. "0 1 0 1")',default='0 1')
+    parser.add_argument('-FF',help='FF file to be added to Gaussian input',default=None)
     # Parse input
     args = parser.parse_args()
 
@@ -173,7 +175,9 @@ if __name__ == "__main__":
     # -- MM layer --
     if args.selMM:
         try:
-            layerMM = u.select_atoms(args.selMM,updating=True)
+            # Ensure no overlap with QM layer
+            selection='('+args.selMM+') and not group selQM'
+            layerMM = u.select_atoms(selection,updating=True,selQM=layerQM)
         except:
             raise BaseException("Error setting MM layer. Maybe due to missplells in selection keyword")
     elif args.indMM:
@@ -184,16 +188,21 @@ if __name__ == "__main__":
             selection += str(num)+' '
         # Apply selection (static)
         try:
-            layerMM = u.select_atoms(selection)
+            # Ensure no overlap with QM layer
+            selection='('+selection+') and not group selQM'
+            layerMM = u.select_atoms(selection,selQM=layerQM)
         except:
             raise BaseException("Error setting MM layer. Check index file")
     else:
-        layerMM = None
+        # return an empty AtomGroup (acts as None type within if clauses)
+        layerMM = MDAnalysis.AtomGroup([],u)
 
     # -- Point charges layer --
     if args.selPC:
         try:
-            layerPC = u.select_atoms(args.selPC,updating=True)
+            # Ensure no overlap with QM/MM layers
+            selection = '('+args.selPC+') and not ((group selQM) or (group selMM))'
+            layerPC = u.select_atoms(selection,updating=True,selQM=layerQM,selMM=layerMM)
         except:
             raise BaseException("Error setting PC layer. Maybe due to missplells in selection keyword")
     elif args.indPC:
@@ -204,11 +213,12 @@ if __name__ == "__main__":
             selection += str(num)+' '
         # Apply selection (static)
         try:
-            layerPC = u.select_atoms(selection)
+            selection = '('+selection+') and not ((group selQM) or (group selMM))'
+            layerPC = u.select_atoms(selection,selQM=layerQM,selMM=layerMM)
         except:
             raise BaseException("Error setting PC layer. Check index file")
     else:
-        layerPC = None
+        layerPC = MDAnalysis.AtomGroup([],u)
 
     
     # Set some defaults to slice the traj
@@ -239,14 +249,18 @@ if __name__ == "__main__":
             continue
 
         # Write Gaussian input
-        istp += 1
         fmt='%%s%%0%ig%%s.%%s'%args.nzero
         fname  = fmt%(args.ob,istp,args.osfx,'com')
         chkname= fmt%(args.ob,istp,args.osfx,'chk')
         f = open(fname,'w')
-        write_oniom(layerQM,layerMM,layerPC,unit=f,
+        write_oniom(layerQM,layerMM,layerPC,
+                    unit=f,
                     title='Trajectory step %s (time=%s ps)'%(conf.frame,round(conf.time,5)),
-                    chk=chkname)
+                    chk=chkname,
+                    FFfile=args.FF,
+                    method=args.method,
+                    chargemult=args.chargemult)
         f.close()
         print('%s generated'%fname)
+        istp += 1
 
