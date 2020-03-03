@@ -138,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument('-f',help='Trajectory file')
     parser.add_argument('-ob',help='Base name of generated Gaussian input',default='snap')
     parser.add_argument('-osfx',help='Suffix to be appended to Gaussian input name',default='')
-    parser.add_argument('-nzero',help='Digits for the label with the step number',default=3)
+    parser.add_argument('-nzero',help='Digits for the label with the step number',type=int,default=3)
     parser.add_argument('-b',help='First frame (ps) to read from trajectory',type=float,default=-1.)
     parser.add_argument('-e',help='Last frame (ps) to read from trajectory',type=float,default=-1.)
     parser.add_argument('-dt',help='Only use frame when t MOD dt = first time (ps)',type=float,default=-1.)
