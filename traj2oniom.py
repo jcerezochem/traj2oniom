@@ -93,20 +93,32 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
              print('%-20s %10.5f %10.5f %10.5f %s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,'L'),file=unit) 
 
         # Print connectivity
+        # We first need a map between traj index and com index
+        map_index = {}
+        i = 0
+        for atom in atomsQM.atoms:
+            i += 1
+            map_index[atom.index] = i
+        for atom in atomsMM.atoms:
+            i += 1
+            map_index[atom.index] = i
+        # And now generate connectivity
         print("",file=unit)
-        for atom in atomsQM.atoms: 
-            i1 = atom.index + 1 
+        for atom in atomsQM.atoms:
+            i1 = map_index[atom.index]
+            cnx_entry = str(i1)+' '
             for bonded_atom in atom.bonded_atoms: 
-                i2 = bonded_atom.index + 1 
-                if (i1<i2): 
-                    print('%s %s 1.0'%(i1,i2),file=unit) 
+                i2 = map_index[bonded_atom.index] 
+                cnx_entry += str(i2)+' 1.0 '
+            print('%s'%cnx_entry,file=unit) 
         for atom in atomsMM.atoms: 
-            i1 = atom.index + 1 
+            i1 = map_index[atom.index]
+            cnx_entry = str(i1)+' '
             for bonded_atom in atom.bonded_atoms: 
-                i2 = bonded_atom.index + 1 
-                if (i1<i2): 
-                    print('%s %s 1.0'%(i1,i2),file=unit) 
-
+                i2 = map_index[bonded_atom.index] 
+                cnx_entry += str(i2)+' 1.0 '
+            print('%s'%cnx_entry,file=unit) 
+            
         # Include FF
         if FFfile:
             print("",file=unit)
