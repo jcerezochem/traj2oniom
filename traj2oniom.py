@@ -157,6 +157,58 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
         for atom in atomsPC: 
              print('%10.5f %10.5f %10.5f %10.5f'%(*atom.position,round(atom.charge,5)),file=unit)
         print("",file=unit)
+        
+    return None
+        
+        
+def write_oniom_gro(atomsQM,atomsMM,atomsPC,grofile,vmd_visualization=True):
+    
+    AllLayers = atomsQM.copy()
+    # Setting this resnames leads to an error due to
+    # a strange conflict with atomsPC (this is not
+    # observed e.g. when atomsPC has updating=False)
+    # We comment this for the moment, but it'd be better
+    # to understand why the error occurs
+    #AllLayers.residues.resnames = 'QML'
+    
+    if atomsMM:
+        Layer = atomsMM.copy()
+        Layer.residues.resnames = 'MML'
+        AllLayers += Layer.copy()
+        
+    if atomsPC:
+        Layer = atomsPC.copy()
+        Layer.residues.resnames = 'PCL'
+        AllLayers += Layer.copy()
+    
+    AllLayers.write(grofile)
+    
+    if vmd_visualization:
+        with open('viewLayers.vmd','w') as f:
+            print("""# Use this as:
+#  vmd GROFILE.gro -e viewLayers.vmd
+mol delrep 0 top
+# QM layer
+mol representation CPK 1.200000 0.600000 12.000000 12.000000
+mol color Name
+mol selection {not resname MML PCL}
+mol material Opaque
+mol addrep top
+# MM layer
+mol representation Licorice 0.050000 12.000000 12.000000
+mol color Name
+mol selection {resname MML}
+mol material Opaque
+mol addrep top
+# Point charges
+mol representation Points 4.000000
+mol color Name
+mol selection {resname PCL}
+mol material Opaque
+mol addrep top""",file=f)
+    
+    return None
+        
 
 
 if __name__ == "__main__":
@@ -181,6 +233,7 @@ if __name__ == "__main__":
     parser.add_argument('-method',help='Whole route section (e.g. "#p hf/sto-3g")',default='#p hf/sto-3g')
     parser.add_argument('-chargemult',help='Charge and multiplicity line (e.g. "0 1 0 1")',default='0 1')
     parser.add_argument('-FF',metavar='file.prm',help='FF file into be added to Gaussian input',default=None)
+    parser.add_argument('-writeGRO',action='store_true',help='Write gro file to check layers',default=False)
     # Parse input
     args = parser.parse_args()
 
@@ -298,6 +351,13 @@ if __name__ == "__main__":
                     method=args.method,
                     chargemult=args.chargemult)
         f.close()
-        print('%s generated'%fname)
+        files_gen = fname
+        if args.writeGRO:
+            grofile = fmt%(args.ob,istp,args.osfx,'gro')
+            write_oniom_gro(layerQM,layerMM,layerPC,grofile,vmd_visualization=True)
+            files_gen += ' '+grofile+' viewLayers.vmd'
+        # Indicate all files generated
+        print('%s generated'%files_gen)
+        # Prepare next iteration
         istp += 1
 
