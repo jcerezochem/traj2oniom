@@ -78,7 +78,8 @@ def read_ndx(fname,section=None):
 def write_oniom(atomsQM,atomsMM,atomsPC,
                 mem='2gb',nproc=16,chk='snap.chk',
                 method="# hf/sto-3g",chargemult="0 1",unit=sys.stdout,
-                title='Gaussian input from snapshot',FFfile=None):
+                title='Gaussian input from snapshot',FFfile=None,
+                linking_atom='H-H-0.1'):
 
     # Preliminary checks
     # Only ONIOM when atomsMM are specified
@@ -110,12 +111,6 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
          print('%-20s %10.5f %10.5f %10.5f %s'%(atomlabel,*atom.position,hl_flag),file=unit) 
          
     if atomsMM:
-        # Print Low layer
-        for atom in atomsMM: 
-             atname=atname2element(atom.name,atom.resname)
-             print('%-20s %10.5f %10.5f %10.5f %s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,'L'),file=unit) 
-
-        # Print connectivity
         # We first need a map between traj index and com index
         map_index = {}
         i = 0
@@ -125,21 +120,54 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
         for atom in atomsMM.atoms:
             i += 1
             map_index[atom.index] = i
-        # And now generate connectivity
+            
+        # Detect qmmm bonds
+        qmmm_bonds = {}
+        for atom in atomsMM.atoms:
+            i1 = map_index[atom.index]
+            for bonded_atom in atom.bonded_atoms:
+                if bonded_atom.index in atomsQM.atoms.indices:
+                    # QM/MM boundary
+                    i2 = map_index[bonded_atom.index] 
+                    qmmm_bonds[i1] = i2
+        
+        
+        # Print Low layer
+        for i1,atom in enumerate(atomsMM): 
+            if i1 in qmmm_bonds:
+                i2 = qmmm_bonds[i1]
+                ll_flag = 'L '+linking_atom+' '+str(i2)
+            else:
+                ll_flag = 'L'
+            atname=atname2element(atom.name,atom.resname)
+            print('%-20s %10.5f %10.5f %10.5f %s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,ll_flag),file=unit) 
+
+        # Generate and print connectivity
         print("",file=unit)
         for atom in atomsQM.atoms:
             i1 = map_index[atom.index]
             cnx_entry = str(i1)+' '
-            for bonded_atom in atom.bonded_atoms: 
-                i2 = map_index[bonded_atom.index] 
-                cnx_entry += str(i2)+' 1.0 '
+            for bonded_atom in atom.bonded_atoms:
+                if bonded_atom.index in map_index:
+                    i2 = map_index[bonded_atom.index] 
+                    cnx_entry += str(i2)+' 1.0 '
+                elif bonded_atom.index in atomsPC.atoms.indices:
+                    print("WARNING: atom %s in QM layer bonded to PCsol layer"%atom.name)
+                else:
+                    print("WARNING: atom %s in QM layer has an external bond"%atom.name)
             print('%s'%cnx_entry,file=unit) 
         for atom in atomsMM.atoms: 
             i1 = map_index[atom.index]
             cnx_entry = str(i1)+' '
-            for bonded_atom in atom.bonded_atoms: 
-                i2 = map_index[bonded_atom.index] 
-                cnx_entry += str(i2)+' 1.0 '
+            for bonded_atom in atom.bonded_atoms:
+                if bonded_atom.index in map_index:
+                    i2 = map_index[bonded_atom.index] 
+                    cnx_entry += str(i2)+' 1.0 '
+                elif bonded_atom.index in atomsPC.atoms.indices:
+                    #print("NOTE: atom %s in MM layer bonded to PCsol layer"%atom.name)
+                    pass
+                else:
+                    print("NOTE: atom %s in MM layer has an external bond"%atom.name)
             print('%s'%cnx_entry,file=unit) 
             
         # Include FF
@@ -200,7 +228,7 @@ mol selection {resname MML}
 mol material Opaque
 mol addrep top
 # Point charges
-mol representation Points 4.000000
+mol representation Points 3.000000
 mol color Name
 mol selection {resname PCL}
 mol material Opaque
@@ -227,6 +255,16 @@ def compact_atoms(box,atomsQM,atomsMM,atomsPC):
                 atom.position =  v
                     
     return None
+
+
+def exclusive_selection(u,selection,ExclusionGroup):
+    
+    selection_exl='('+selection+') and not group Exclusion'
+    
+    return u.select_atoms(selection_exl,
+                          updating=True,
+                          Exclusion=ExclusionGroup,
+                          periodic=True)
         
 
 
@@ -243,6 +281,7 @@ if __name__ == "__main__":
     parser.add_argument('-indQM',metavar='file.ndx',help='Index file for the QM layer',default=None)
     parser.add_argument('-indMM',metavar='file.ndx',help='Index file for the MM layer',default=None)
     parser.add_argument('-indPC',metavar='file.ndx',help='Index file for the PC layer',default=None)
+    parser.add_argument('-la',metavar='ATOM',help='Linking atom label (e.g. H-H-0.1)',default='H-H-0.1')
     parser.add_argument('-ob',help='Base name of generated Gaussian input',default='snap')
     parser.add_argument('-osfx',help='Suffix to be appended to Gaussian input name',default='')
     parser.add_argument('-nzero',help='Digits for the label with the step number',type=int,default=3)
@@ -285,8 +324,7 @@ if __name__ == "__main__":
     if args.selMM:
         try:
             # Ensure no overlap with QM layer
-            selection='('+args.selMM+') and not group selQM'
-            layerMM = u.select_atoms(selection,updating=True,selQM=layerQM,periodic=True)
+            layerMM = exclusive_selection(u,args.selMM,layerQM)
         except:
             raise BaseException("Error setting MM layer. Maybe due to missplells in selection keyword")
     elif args.indMM:
@@ -298,8 +336,7 @@ if __name__ == "__main__":
         # Apply selection (static)
         try:
             # Ensure no overlap with QM layer
-            selection='('+selection+') and not group selQM'
-            layerMM = u.select_atoms(selection,selQM=layerQM)
+            layerMM = exclusive_selection(u,selection,layerQM)
         except:
             raise BaseException("Error setting MM layer. Check index file")
     else:
@@ -310,8 +347,7 @@ if __name__ == "__main__":
     if args.selPC:
         try:
             # Ensure no overlap with QM/MM layers
-            selection = '('+args.selPC+') and not ((group selQM) or (group selMM))'
-            layerPC = u.select_atoms(selection,updating=True,selQM=layerQM,selMM=layerMM,periodic=True)
+            layerPC = exclusive_selection(u,args.selPC,layerQM+layerMM)
         except:
             raise BaseException("Error setting PC layer. Maybe due to missplells in selection keyword")
     elif args.indPC:
@@ -323,8 +359,7 @@ if __name__ == "__main__":
         # Apply selection (static)
         try:
             # Ensure no overlap with QM/MM layers
-            selection = '('+selection+') and not ((group selQM) or (group selMM))'
-            layerPC = u.select_atoms(selection,selQM=layerQM,selMM=layerMM)
+            layerPC = exclusive_selection(u,selection,layerQM+layerMM)
         except:
             raise BaseException("Error setting PC layer. Check index file")
     else:
@@ -374,7 +409,8 @@ if __name__ == "__main__":
                     chk=chkname,
                     FFfile=args.FF,
                     method=args.method,
-                    chargemult=args.chargemult)
+                    chargemult=args.chargemult,
+                    linking_atom=args.la)
         f.close()
         files_gen = fname
         if args.writeGRO:

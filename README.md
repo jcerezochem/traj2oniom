@@ -51,9 +51,8 @@ and inside the box. This can be done internally in the python script
 with the -compact option, at the cost of extra ~50% time. Moreover 
 the option is not extensively tested.
 
+If selections for QM, MM or PC overlap, duplications are removed from
+the layer with lower priority. The order or priority is QM>MM>PC
 
-Limitations
------------
-
-The script does not (yet) handle bonds between layers properly (i.e. linking atoms).
+Bonds crossing QM/MM boundaries are treated with the linking atom method. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in any layer (WARNINGS are issued).
 
