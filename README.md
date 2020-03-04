@@ -12,8 +12,6 @@ Required input is:
 
 -f (trr,gro,pdb...)  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Coordinates
 
-* Note: PBC need to have been processed to center the QM part 
-
 -s (tpr...) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Topology
 
 -QMsel SELECT-COMMAND &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Sets the QM layer
@@ -40,9 +38,18 @@ the remaining environment within 10 Angs as point charges, one would use:
 
 `traj2oniom.py -f traj.trr -s topol.tpr -selQM "resname DYE" -selMM "byres (around 4 (resname DYE))" -selPC "byres (around 10 (resname DYE))"`
 
+
+Additional notes
+----------------
+
 The tested trajectory (traj.trr) and topology (topol.tpr) files correspond to Gromacs files, but in principle, 
-any [topology](https://www.mdanalysis.org/docs/documentation_pages/topology/init.html#supported-topology-formats) and [coordinate](https://www.mdanalysis.org/docs/documentation_pages/coordinates/init.html#id2) format supported by MDAnalysis should work. The trajectory should be processed before it is used in order
-to place the QM molecules in the center and all MM/PC molecules whole and inside the box.
+any [topology](https://www.mdanalysis.org/docs/documentation_pages/topology/init.html#supported-topology-formats) and [coordinate](https://www.mdanalysis.org/docs/documentation_pages/coordinates/init.html#id2) format supported by MDAnalysis should work. 
+
+It is preferable to process the trajectory before it is used in order 
+to place the QM molecules in the center and all MM/PC molecules whole 
+and inside the box. This can be done internally in the python script
+with the -compact option, at the cost of extra ~50% time. Moreover 
+the option is not extensively tested.
 
 
 Limitations

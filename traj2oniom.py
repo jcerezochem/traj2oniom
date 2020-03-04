@@ -55,7 +55,6 @@ def atname2element(name,resname):
 
     return name
 
-
 def read_ndx(fname,section=None):
     with open(fname) as f:
         if section:
@@ -208,6 +207,26 @@ mol material Opaque
 mol addrep top""",file=f)
     
     return None
+
+
+def compact_atoms(box,atomsQM,atomsMM,atomsPC):
+
+    # Ref position is the center_of_geometry of QM layer
+    Rref = atomsQM.center_of_geometry()
+    
+    # Iterate over all atoms
+    for atom in atomsQM.atoms+atomsMM.atoms+atomsPC.atoms:
+        for ix in range(3):
+            d = atom.position[ix] - Rref[ix]
+            if abs(d) > box[ix]/2:
+                v = atom.position
+                if (d>0):
+                    v[ix] -= box[ix]
+                else:
+                    v[ix] += box[ix]
+                atom.position =  v
+                    
+    return None
         
 
 
@@ -234,6 +253,7 @@ if __name__ == "__main__":
     parser.add_argument('-chargemult',help='Charge and multiplicity line (e.g. "0 1 0 1")',default='0 1')
     parser.add_argument('-FF',metavar='file.prm',help='FF file into be added to Gaussian input',default=None)
     parser.add_argument('-writeGRO',action='store_true',help='Write gro file to check layers',default=False)
+    parser.add_argument('-compact',action='store_true',help='Process the snapshot to ensure compact representation',default=False)
     # Parse input
     args = parser.parse_args()
 
@@ -266,7 +286,7 @@ if __name__ == "__main__":
         try:
             # Ensure no overlap with QM layer
             selection='('+args.selMM+') and not group selQM'
-            layerMM = u.select_atoms(selection,updating=True,selQM=layerQM)
+            layerMM = u.select_atoms(selection,updating=True,selQM=layerQM,periodic=True)
         except:
             raise BaseException("Error setting MM layer. Maybe due to missplells in selection keyword")
     elif args.indMM:
@@ -291,7 +311,7 @@ if __name__ == "__main__":
         try:
             # Ensure no overlap with QM/MM layers
             selection = '('+args.selPC+') and not ((group selQM) or (group selMM))'
-            layerPC = u.select_atoms(selection,updating=True,selQM=layerQM,selMM=layerMM)
+            layerPC = u.select_atoms(selection,updating=True,selQM=layerQM,selMM=layerMM,periodic=True)
         except:
             raise BaseException("Error setting PC layer. Maybe due to missplells in selection keyword")
     elif args.indPC:
@@ -337,6 +357,11 @@ if __name__ == "__main__":
             continue
         elif conf.time<tini:
             continue
+        
+        if args.compact:
+            # Get box dimensions (assume rect box) 
+            box = u.dimensions[:3]
+            compact_atoms(box,layerQM,layerMM,layerPC)
 
         # Write Gaussian input
         fmt='%%s%%0%ig%%s.%%s'%args.nzero
