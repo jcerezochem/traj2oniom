@@ -34,9 +34,9 @@ Example
 -------
 
 To generate a QM/MM input with residue DYE in the QM layer and all around 4 Angstrong in the MM layer, plus
-the remaining environment within 10 Angs as point charges, one would use:
+the remaining environment within a sphere of 10 Angs as point charges, one would use:
 
-`traj2oniom.py -f traj.trr -s topol.tpr -selQM "resname DYE" -selMM "byres (around 4 (resname DYE))" -selPC "byres (around 10 (resname DYE))"`
+`traj2oniom.py -f traj.trr -s topol.tpr -selQM "resname DYE" -selMM "byres (around 4 (resname DYE))" -selPC "byres (sphlayer 0 10 (resname DYE))"`
 
 
 Additional notes
@@ -48,11 +48,13 @@ any [topology](https://www.mdanalysis.org/docs/documentation_pages/topology/init
 It is preferable to process the trajectory before it is used in order 
 to place the QM molecules in the center and all MM/PC molecules whole 
 and inside the box. This can be done internally in the python script
-with the -compact option, at the cost of extra ~50% time. Moreover 
+with the `-compact` option, at the cost of extra ~50% time (when loading the system is not the bottleneck step). Moreover 
 the option is not extensively tested.
 
 If selections for QM, MM or PC overlap, duplications are removed from
 the layer with lower priority. The order or priority is QM>MM>PC
+
+By default, Gaussian inputs are written placing the QM atoms first, followed by MM ones. Optionally, the original order from the trajectory snapshot can be kept with the `-keep` keyword.
 
 Bonds crossing QM/MM boundaries are treated with the linking atom method. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in any layer (WARNINGS are issued).
 

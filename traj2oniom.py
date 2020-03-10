@@ -79,7 +79,8 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
                 mem='2gb',nproc=16,chk='snap.chk',
                 method="# hf/sto-3g",chargemult="0 1",unit=sys.stdout,
                 title='Gaussian input from snapshot',FFfile=None,
-                linking_atom='H-H-0.1'):
+                linking_atom='H-H-0.1',
+                keep_traj_order=True):
 
     # Preliminary checks
     # Only ONIOM when atomsMM are specified
@@ -101,39 +102,43 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
 %s"""%(mem,nproc,chk,method,title,chargemult)
     print(header,file=unit)
     
-    # Print High layer 
-    for atom in atomsQM:
-         atname=atname2element(atom.name,atom.resname)
-         if atomsMM:
-             atomlabel='%s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)))
-         else:
-             atomlabel='%s'%(atname)
-         print('%-20s %10.5f %10.5f %10.5f %s'%(atomlabel,*atom.position,hl_flag),file=unit) 
-         
+    
+    # Build QMMM layer
+    atomsQMMM = atomsQM + atomsMM
+    if keep_traj_order:
+        atomsQMMM.atoms.ix_array.sort()
+        
+    # Initial preps for QMMM systems
     if atomsMM:
         # We first need a map between traj index and com index
         map_index = {}
         i = 0
-        for atom in atomsQM.atoms:
+        for atom in atomsQMMM.atoms:
             i += 1
             map_index[atom.index] = i
-        for atom in atomsMM.atoms:
-            i += 1
-            map_index[atom.index] = i
-            
         # Detect qmmm bonds
         qmmm_bonds = {}
         for atom in atomsMM.atoms:
             i1 = map_index[atom.index]
             for bonded_atom in atom.bonded_atoms:
-                if bonded_atom.index in atomsQM.atoms.indices:
+                if bonded_atom in atomsQM.atoms:
                     # QM/MM boundary
                     i2 = map_index[bonded_atom.index] 
                     qmmm_bonds[i1] = i2
-        
-        
-        # Print Low layer
-        for i1,atom in enumerate(atomsMM): 
+    
+    # Print layers on Gaussian file
+    for atom in atomsQMMM:
+        # High layer
+        if atom in atomsQM:
+            atname=atname2element(atom.name,atom.resname)
+            if atomsMM:
+                atomlabel='%s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)))
+            else:
+                atomlabel='%s'%(atname)
+            print('%-20s %10.5f %10.5f %10.5f %s'%(atomlabel,*atom.position,hl_flag),file=unit)
+        # Low layer
+        else:
+            i1 = map_index[atom.index]
             if i1 in qmmm_bonds:
                 i2 = qmmm_bonds[i1]
                 ll_flag = 'L '+linking_atom+' '+str(i2)
@@ -141,33 +146,27 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
                 ll_flag = 'L'
             atname=atname2element(atom.name,atom.resname)
             print('%-20s %10.5f %10.5f %10.5f %s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,ll_flag),file=unit) 
-
+            
+    if atomsMM:
         # Generate and print connectivity
         print("",file=unit)
-        for atom in atomsQM.atoms:
+        for atom in atomsQMMM.atoms:
             i1 = map_index[atom.index]
             cnx_entry = str(i1)+' '
             for bonded_atom in atom.bonded_atoms:
                 if bonded_atom.index in map_index:
                     i2 = map_index[bonded_atom.index] 
                     cnx_entry += str(i2)+' 1.0 '
-                elif bonded_atom.index in atomsPC.atoms.indices:
-                    print("WARNING: atom %s in QM layer bonded to PCsol layer"%atom.name)
+                elif bonded_atom in atomsPC.atoms:
+                    if atom in atomsQM.atoms:
+                        print("WARNING: atom %s in QM layer bonded to PCsol layer"%atom.name)
+                    #else:
+                        #print("NOTE: atom %s in MM layer bonded to PCsol layer"%atom.name)
                 else:
-                    print("WARNING: atom %s in QM layer has an external bond"%atom.name)
-            print('%s'%cnx_entry,file=unit) 
-        for atom in atomsMM.atoms: 
-            i1 = map_index[atom.index]
-            cnx_entry = str(i1)+' '
-            for bonded_atom in atom.bonded_atoms:
-                if bonded_atom.index in map_index:
-                    i2 = map_index[bonded_atom.index] 
-                    cnx_entry += str(i2)+' 1.0 '
-                elif bonded_atom.index in atomsPC.atoms.indices:
-                    #print("NOTE: atom %s in MM layer bonded to PCsol layer"%atom.name)
-                    pass
-                else:
-                    print("NOTE: atom %s in MM layer has an external bond"%atom.name)
+                    if atom in atomsQM.atoms:
+                        print("WARNING: atom %s in QM layer has an external bond"%atom.name)
+                    else:
+                        print("WARNING: atom %s in MM layer has an external bond"%atom.name)
             print('%s'%cnx_entry,file=unit) 
             
         # Include FF
@@ -293,6 +292,7 @@ if __name__ == "__main__":
     parser.add_argument('-FF',metavar='file.prm',help='FF file into be added to Gaussian input',default=None)
     parser.add_argument('-writeGRO',action='store_true',help='Write gro file to check layers',default=False)
     parser.add_argument('-compact',action='store_true',help='Process the snapshot to ensure compact representation',default=False)
+    parser.add_argument('-keep',action='store_true',help='Keep atom ordering from trajectory (instead of reordering QM then MM)',default=False)
     # Parse input
     args = parser.parse_args()
 
@@ -410,7 +410,8 @@ if __name__ == "__main__":
                     FFfile=args.FF,
                     method=args.method,
                     chargemult=args.chargemult,
-                    linking_atom=args.la)
+                    linking_atom=args.la,
+                    keep_traj_order=args.keep)
         f.close()
         files_gen = fname
         if args.writeGRO:
