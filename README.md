@@ -1,9 +1,9 @@
 # traj2oniom
 Python script to generate ONIOM (Gaussian) inputs from MD trajectory and topology
 
-The scripts uses [MDAnalysis](https://www.mdanalysis.org/) module to select QM, MM and Point Charges layers. 
+The script uses [MDAnalysis](https://www.mdanalysis.org/) module to select QM, MM and Point Charges layers. 
 It can use the MDAnalysis [syntax](https://www.mdanalysis.org/docs/documentation_pages/selections.html) to set 
-layers or use Gromacs index files. Using the former allows dynamic selections along a trajectory.
+layers or, instead, Gromacs index files. Using the former allows dynamic selections along a trajectory.
 
 Quick guide
 -----------
@@ -56,5 +56,5 @@ the layer with lower priority. The order or priority is QM>MM>PC
 
 By default, Gaussian inputs are written placing the QM atoms first, followed by MM ones. Optionally, the original order from the trajectory snapshot can be kept with the `-keep` keyword.
 
-Bonds crossing QM/MM boundaries are treated with the linking atom method. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in any layer (WARNINGS are issued).
+Bonds crossing QM/MM boundaries are treated with the linking atom approach. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in any layer (WARNINGS are issued).
 
