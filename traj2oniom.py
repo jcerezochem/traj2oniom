@@ -14,9 +14,9 @@ def atname2element(name,resname):
     # Manage C-labels and CA, CL, CS
     if   resname.upper() == 'CA' and name.upper() == 'CA':
         name = 'Ca'
-    elif resname.upper() == 'CL' and name.upper() == 'CL':
+    elif resname.upper() == 'CL':# and name.upper() == 'CL':
         name = 'Cl'
-    elif resname.upper() == 'CS' and name.upper() == 'CS':
+    elif resname.upper() == 'CS':# and name.upper() == 'CS':
         name = 'Cs'
     elif name.upper()[0] == 'C':
         name = 'C'
@@ -82,7 +82,8 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
                 title='Gaussian input from snapshot',FFfile=None,
                 linking_atom='H-H-0.1',
                 keep_traj_order=False,
-                use_computed_charges=False):
+                use_computed_charges=False,
+                fix_atomnames=False):
 
     # Preliminary checks
     # Only ONIOM when atomsMM are specified
@@ -161,7 +162,10 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
     for atom in atomsQMMM:
         # High layer
         if atom in atomsQM:
-            atname=atname2element(atom.name,atom.resname)
+            if fix_atomnames:
+                atname=atname2element(atom.name,atom.resname)
+            else:
+                atname=atom.name
             if atomsMM:
                 atomlabel='%s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)))
             else:
@@ -175,7 +179,10 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
                 ll_flag = 'L '+linking_atom+' '+str(i2)
             else:
                 ll_flag = 'L'
-            atname=atname2element(atom.name,atom.resname)
+            if fix_atomnames:
+                atname=atname2element(atom.name,atom.resname)
+            else:
+                atname=atom.name
             print('%-20s %10.5f %10.5f %10.5f %s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,ll_flag),file=unit) 
             
     if atomsMM:
@@ -325,6 +332,7 @@ if __name__ == "__main__":
     parser.add_argument('-writeGRO',action='store_true',help='Write gro file to check layers',default=False)
     parser.add_argument('-compact',action='store_true',help='Process the snapshot to ensure compact representation',default=False)
     parser.add_argument('-keep',action='store_true',help='Keep atom ordering from trajectory (instead of reordering QM then MM)',default=False)
+    parser.add_argument('-fixnames',action='store_true',help='Try to convert atomnames into element names (WARNING: this might work unexpectedly)',default=False)
     # Parse input
     args = parser.parse_args()
 
@@ -444,7 +452,8 @@ if __name__ == "__main__":
                     chargemult=args.chargemult,
                     linking_atom=args.la,
                     keep_traj_order=args.keep,
-                    use_computed_charges=args.computeQ)
+                    use_computed_charges=args.computeQ,
+                    fix_atomnames=agr.fixnames)
         f.close()
         files_gen = fname
         if args.writeGRO:

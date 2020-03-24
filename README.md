@@ -58,3 +58,4 @@ By default, Gaussian inputs are written placing the QM atoms first, followed by 
 
 Bonds crossing QM/MM boundaries are treated with the linking atom approach. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in any layer (WARNINGS are issued).
 
+Atom names are kept from the trajectory file. Note that this may lead to errors in Gaussian not understanding some atom names (if they are not standard). A not-well tested option, -fixnames, can be used to change atom names into elements, but this can lead to wrong element assignemts in some case, so use it with caution.
