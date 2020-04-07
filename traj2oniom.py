@@ -453,7 +453,7 @@ if __name__ == "__main__":
                     linking_atom=args.la,
                     keep_traj_order=args.keep,
                     use_computed_charges=args.computeQ,
-                    fix_atomnames=agr.fixnames)
+                    fix_atomnames=args.fixnames)
         f.close()
         files_gen = fname
         if args.writeGRO:
