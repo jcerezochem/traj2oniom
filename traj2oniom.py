@@ -354,7 +354,7 @@ if __name__ == "__main__":
             selection += str(num)+' '
         # Apply selection (static)
         try:
-            layerQM = u.select_atoms(selection)
+            layerQM = u.select_atoms(selection,updating=False)
         except:
             raise BaseException("Error setting QM layer. Check index file")
     else:
@@ -364,7 +364,8 @@ if __name__ == "__main__":
     if args.selMM:
         try:
             # Ensure no overlap with QM layer
-            layerMM = exclusive_selection(u,args.selMM,layerQM)
+            #layerMM = exclusive_selection(u,args.selMM,layerQM)
+            layerMM = u.select_atoms(args.selMM,updating=True)
         except:
             raise BaseException("Error setting MM layer. Maybe due to missplells in selection keyword")
     elif args.indMM:
@@ -376,7 +377,8 @@ if __name__ == "__main__":
         # Apply selection (static)
         try:
             # Ensure no overlap with QM layer
-            layerMM = exclusive_selection(u,selection,layerQM)
+            #layerMM = exclusive_selection(u,selection,layerQM)
+            layerMM = u.select_atoms(selection,updating=False)
         except:
             raise BaseException("Error setting MM layer. Check index file")
     else:
@@ -387,7 +389,8 @@ if __name__ == "__main__":
     if args.selPC:
         try:
             # Ensure no overlap with QM/MM layers
-            layerPC = exclusive_selection(u,args.selPC,layerQM+layerMM)
+            #layerPC = exclusive_selection(u,args.selPC,layerQM+layerMM)
+            layerPC = u.select_atoms(args.selPC,updating=True)
         except:
             raise BaseException("Error setting PC layer. Maybe due to missplells in selection keyword")
     elif args.indPC:
@@ -399,7 +402,8 @@ if __name__ == "__main__":
         # Apply selection (static)
         try:
             # Ensure no overlap with QM/MM layers
-            layerPC = exclusive_selection(u,selection,layerQM+layerMM)
+            #layerPC = exclusive_selection(u,selection,layerQM+layerMM)
+            layerPC = u.select_atoms(selection,updating=False)
         except:
             raise BaseException("Error setting PC layer. Check index file")
     else:
@@ -443,7 +447,7 @@ if __name__ == "__main__":
         fname  = fmt%(args.ob,istp,args.osfx,'com')
         chkname= fmt%(args.ob,istp,args.osfx,'chk')
         f = open(fname,'w')
-        write_oniom(layerQM,layerMM,layerPC,
+        write_oniom(layerQM,layerMM-layerQM,layerPC-layerMM-layerQM,
                     unit=f,
                     title='Trajectory step %s (time=%s ps)'%(conf.frame,round(conf.time,5)),
                     chk=chkname,
@@ -458,7 +462,7 @@ if __name__ == "__main__":
         files_gen = fname
         if args.writeGRO:
             grofile = fmt%(args.ob,istp,args.osfx,'gro')
-            write_oniom_gro(layerQM,layerMM,layerPC,grofile,vmd_visualization=True)
+            write_oniom_gro(layerQM,layerMM-layerQM,layerPC-layerMM-layerQM,grofile,vmd_visualization=True)
             files_gen += ' '+grofile+' viewLayers.vmd'
         # Indicate all files generated
         print('%s generated'%files_gen)
