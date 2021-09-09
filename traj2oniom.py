@@ -443,9 +443,14 @@ if __name__ == "__main__":
             compact_atoms(box,layerQM,layerMM,layerPC)
 
         # Write Gaussian input
-        fmt='%%s%%0%ig%%s.%%s'%args.nzero
-        fname  = fmt%(args.ob,istp,args.osfx,'com')
-        chkname= fmt%(args.ob,istp,args.osfx,'chk')
+        if args.nzero > 0:
+            fmt='%%s%%0%ig%%s.%%s'%args.nzero
+            fname  = fmt%(args.ob,istp,args.osfx,'com')
+            chkname= fmt%(args.ob,istp,args.osfx,'chk')
+        else:
+            fmt='%s%s.%s'
+            fname  = fmt%(args.ob,args.osfx,'com')
+            chkname= fmt%(args.ob,args.osfx,'chk')
         f = open(fname,'w')
         write_oniom(layerQM,layerMM-layerQM,layerPC-layerMM-layerQM,
                     unit=f,
@@ -461,7 +466,10 @@ if __name__ == "__main__":
         f.close()
         files_gen = fname
         if args.writeGRO:
-            grofile = fmt%(args.ob,istp,args.osfx,'gro')
+            if args.nzero > 0:
+                grofile = fmt%(args.ob,istp,args.osfx,'gro')
+            else:
+                grofile = fmt%(args.ob,args.osfx,'gro')
             write_oniom_gro(layerQM,layerMM-layerQM,layerPC-layerMM-layerQM,grofile,vmd_visualization=True)
             files_gen += ' '+grofile+' viewLayers.vmd'
         # Indicate all files generated
