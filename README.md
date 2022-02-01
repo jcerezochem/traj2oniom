@@ -16,7 +16,7 @@ Required input is:
 | `-s` FILE(tpr...)           |Topology          |
 | `-QMsel` SELECT-COMMAND |Sets the QM layer |
 
-* Note: alternatively, the selection can be given through a gromacs index file, using the -indQM flag. The first group in the index file is used 
+* Note: alternatively, the selection can be given through a gromacs index file, using the `-indQM` flag. The first group in the index file is used 
 
 Most relevant optional input is:
 
@@ -60,3 +60,7 @@ By default, Gaussian inputs are written placing the QM atoms first, followed by 
 Bonds crossing QM/MM boundaries are treated with the linking atom approach. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in no layer (WARNINGS are issued).
 
 Atom names are kept from the trajectory file. Note that this may lead to errors in Gaussian not understanding some atom names (if they are not standard). A not-well tested option, -fixnames, can be used to change atom names into elements, but this can lead to wrong element assignemts in some case, so use it with caution. A better approach would be regenerating the topology files (tpr) enrusing proper naming of the elements, before running the script.
+
+The QM/MM/PC model can be visualized generating a gro file with option `-writeGRO`. This writes a file named after the com file along with a VMD setting file (`viewLayers.vmd`). The model can be conveniently visualized with the command:
+
+`vmd filename.gro -e viewLayers.vmd`
