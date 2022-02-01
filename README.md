@@ -10,19 +10,20 @@ Quick guide
 
 Required input is:
 
--f (trr,gro,pdb...)  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Coordinates
-
--s (tpr...) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Topology
-
--QMsel SELECT-COMMAND &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Sets the QM layer
+| Option                | Description      |
+|-----------------------|------------------|
+| `-f` FILE(trr,gro,pdb...)   |Coordinates       |
+| `-s` FILE(tpr...)           |Topology          |
+| `-QMsel` SELECT-COMMAND |Sets the QM layer |
 
 * Note: alternatively, the selection can be given through a gromacs index file, using the -indQM flag. The first group in the index file is used 
 
 Most relevant optional input is:
 
--MMsel SELECT-COMMAND &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Sets the MM layer
-
--PCsel SELECT-COMMAND &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |Set region to be treated as point charges
+| Option                | Description      |
+|-----------------------|------------------|
+| `-MMsel` SELECT-COMMAND |Sets the MM layer |
+| `-PCsel` SELECT-COMMAND |Set region to be treated as point charges |
 
 
 See all available options with:
@@ -56,6 +57,6 @@ the layer with lower priority. The order or priority is QM>MM>PC
 
 By default, Gaussian inputs are written placing the QM atoms first, followed by MM ones. Optionally, the original order from the trajectory snapshot can be kept with the `-keep` keyword.
 
-Bonds crossing QM/MM boundaries are treated with the linking atom approach. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in any layer (WARNINGS are issued).
+Bonds crossing QM/MM boundaries are treated with the linking atom approach. Bonds crossing MM/PC or QM/PC boundaries are not treated in any specific way; the same applies to bonds with atoms in no layer (WARNINGS are issued).
 
-Atom names are kept from the trajectory file. Note that this may lead to errors in Gaussian not understanding some atom names (if they are not standard). A not-well tested option, -fixnames, can be used to change atom names into elements, but this can lead to wrong element assignemts in some case, so use it with caution.
+Atom names are kept from the trajectory file. Note that this may lead to errors in Gaussian not understanding some atom names (if they are not standard). A not-well tested option, -fixnames, can be used to change atom names into elements, but this can lead to wrong element assignemts in some case, so use it with caution. A better approach would be regenerating the topology files (tpr) enrusing proper naming of the elements, before running the script.
