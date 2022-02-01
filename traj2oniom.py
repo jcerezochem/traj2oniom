@@ -102,19 +102,26 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
         if np.round(np.modf(qmodel)[0],5) != 0.0:
             print('WARNING: fractional charge in model system %s'%qmodel)
         # Consistent with chargemult?
-        q = float(chargemult.split()[0])
-        mreal = chargemult.split()[1]
-        if qreal != q:
-            pass
-            #print('WARNING: sum of charges (real) inconsisten with charge on input: %s vs. %s',qreal,q)
-        if len(chargemult.split()) >= 4:
-            q = float(chargemult.split()[2])
-            mmodel = chargemult.split()[3]
-        else: #same as real
-            mmodel = mreal
-        if qmodel != q:
-            pass
-            #print('WARNING: sum of charges (model) inconsisten with charge on input: %s vs. %s',qmodel,q)
+        if chargemult:
+            # Take mult from input
+            q = float(chargemult.split()[0])
+            mreal = chargemult.split()[1]
+            if qreal != q:
+                pass
+                #print('WARNING: sum of charges (real) inconsisten with charge on input: %s vs. %s',qreal,q)
+            if len(chargemult.split()) >= 4:
+                q = float(chargemult.split()[2])
+                mmodel = chargemult.split()[3]
+            else: #same as real
+                mmodel = mreal
+            if qmodel != q:
+                pass
+                #print('WARNING: sum of charges (model) inconsisten with charge on input: %s vs. %s',qmodel,q)
+        else:
+            # Get mult from counting electrons (lowest mult is taken) - TODO (for now assume singlet)
+            mreal = str(0)
+            mmodel = str(0)
+            
             
         # Update chargemult string
         qreal  = str(int(qreal))
@@ -328,8 +335,8 @@ if __name__ == "__main__":
     parser.add_argument('-e',metavar='<time>',help='Last frame (ps) to read from trajectory',type=float,default=-1.)
     parser.add_argument('-dt',metavar='<time>',help='Only use frame when t MOD dt = first time (ps)',type=float,default=-1.)
     parser.add_argument('-method',help='Whole route section (e.g. "#p hf/sto-3g")',default='#p hf/sto-3g')
-    parser.add_argument('-chargemult',help='Charge and multiplicity line (e.g. "0 1 0 1")',default='0 1')
-    parser.add_argument('-computeQ',action='store_true',help='Compute Charges in chargemult from topology',default=False)
+    parser.add_argument('-chargemult',help='Charge and multiplicity line (e.g. "0 1 0 1")',default=None)
+    parser.add_argument('-computeQ',action='store_true',help='Compute Charges in chargemult from topology',default=None)
     parser.add_argument('-FF',metavar='file.prm',help='FF file into be added to Gaussian input',default=None)
     parser.add_argument('-writeGRO',action='store_true',help='Write gro file to check layers',default=False)
     parser.add_argument('-compact',action='store_true',help='Process the snapshot to ensure compact representation',default=False)
@@ -454,6 +461,12 @@ if __name__ == "__main__":
             fname  = fmt%(args.ob,args.osfx,'com')
             chkname= fmt%(args.ob,args.osfx,'chk')
         f = open(fname,'w')
+        # Manage defaults to set charge/mult
+        if args.computeQ is None:
+            if args.chargemult is not None:
+                args.computeQ = False
+            else:
+                args.computeQ = True
         write_oniom(layerQM,layerMM-layerQM,layerPC-layerMM-layerQM,
                     unit=f,
                     title='Trajectory step %s (time=%s ps)'%(conf.frame,round(conf.time,5)),
