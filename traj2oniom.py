@@ -311,7 +311,9 @@ if __name__ == "__main__":
     # Input parser. Set flags
     parser = argparse.ArgumentParser(description='Generate ONIOM inputs from Gromacs trajectory.')
     parser.add_argument('-f',metavar='file.trr',help='Trajectory file',required=True)
+    parser.add_argument('-f_fmt',metavar='trr',help='Format of trajectory file',required=False)
     parser.add_argument('-s',metavar='file.tpr',help='Binary topoly file',required=True)
+    parser.add_argument('-s_fmt',metavar='tpr',help='Format of topoly file',required=False)
     parser.add_argument('-selQM',metavar='select_string',help='Selection command for the QM layer',default=None)
     parser.add_argument('-selMM',metavar='select_string',help='Selection command for the MM layer',default=None)
     parser.add_argument('-selPC',metavar='select_string',help='Selection command for the PC layer',default=None)
@@ -337,7 +339,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Get topology and coordinates
-    u = MDAnalysis.Universe(args.s,args.f)
+    u = MDAnalysis.Universe(args.s,args.f,topology_format=args.s_fmt,format=args.f_fmt)
 
     # Selections
     # -- QM layer --
