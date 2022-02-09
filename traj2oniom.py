@@ -120,7 +120,7 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
         else:
             # Get mult from counting electrons (lowest mult is taken) - TODO (for now assume singlet)
             mreal = str(0)
-            mmodel = str(0)
+            mmodel = str(1)
             
             
         # Update chargemult string
