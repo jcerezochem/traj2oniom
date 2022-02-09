@@ -119,7 +119,7 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
                 #print('WARNING: sum of charges (model) inconsisten with charge on input: %s vs. %s',qmodel,q)
         else:
             # Get mult from counting electrons (lowest mult is taken) - TODO (for now assume singlet)
-            mreal = str(0)
+            mreal = str(1)
             mmodel = str(1)
             
             
