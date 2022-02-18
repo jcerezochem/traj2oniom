@@ -46,11 +46,11 @@ Additional notes
 The tested trajectory (traj.trr) and topology (topol.tpr) files correspond to Gromacs files, but in principle, 
 any [topology](https://www.mdanalysis.org/docs/documentation_pages/topology/init.html#supported-topology-formats) and [coordinate](https://www.mdanalysis.org/docs/documentation_pages/coordinates/init.html#id2) format supported by MDAnalysis should work. 
 
-It is preferable to process the trajectory before it is used in order 
+It may be convinent to process the trajectory before it is used in order 
 to place the QM molecules in the center and all MM/PC molecules whole 
-and inside the box. This can be done internally in the python script
-with the `-compact` option, at the cost of extra ~50% time (when loading the system is not the bottleneck step). Moreover 
-the option is not extensively tested.
+and inside the box. This done internally in the python script with the `wrap()`
+funciton in `MDAnalysis`. You are encouraged to check the results. The wrapping
+step can be skipped with the `-nowrap` flag.
 
 If selections for QM, MM or PC overlap, duplications are removed from
 the layer with lower priority. The order or priority is QM>MM>PC

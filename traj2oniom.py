@@ -336,21 +336,11 @@ mol addrep top""",file=f)
 
 def compact_atoms(box,atomsQM,atomsMM,atomsPC):
 
-    # Ref position is the center_of_geometry of QM layer
-    Rref = atomsQM.center_of_geometry()
-    
-    # Iterate over all atoms
-    for atom in atomsQM.atoms+atomsMM.atoms+atomsPC.atoms:
-        for ix in range(3):
-            d = atom.position[ix] - Rref[ix]
-            if abs(d) > box[ix]/2:
-                v = atom.position
-                if (d>0):
-                    v[ix] -= box[ix]
-                else:
-                    v[ix] += box[ix]
-                atom.position =  v
-                    
+    #Use wrap function
+    atomsQM.wrap()
+    atomsMM.wrap()
+    atomsPC.wrap()
+           
     return None
 
 
@@ -392,7 +382,7 @@ if __name__ == "__main__":
     parser.add_argument('-computeQ',action='store_true',help='Compute Charges in chargemult from topology',default=None)
     parser.add_argument('-FF',metavar='file.prm',help='FF file into be added to Gaussian input',default=None)
     parser.add_argument('-writeGRO',action='store_true',help='Write gro file to check layers',default=False)
-    parser.add_argument('-compact',action='store_true',help='Process the snapshot to ensure compact representation',default=False)
+    parser.add_argument('-nowrap',action='store_true',help='Skip wrapping the layers get a compact representation',default=False)
     parser.add_argument('-keep',action='store_true',help='Keep atom ordering from trajectory (instead of reordering QM then MM)',default=False)
     parser.add_argument('-fixnames',action='store_true',help='Try to convert atomnames into element names (WARNING: this might work unexpectedly)',default=False)
     # Parse input
@@ -499,7 +489,8 @@ if __name__ == "__main__":
         elif conf.time<tini:
             continue
         
-        if args.compact:
+        # Default is trying to generate a compact representation by wrapping all layers
+        if not args.nowrap:
             # Get box dimensions (assume rect box) 
             box = u.dimensions[:3]
             compact_atoms(box,layerQM,layerMM,layerPC)
