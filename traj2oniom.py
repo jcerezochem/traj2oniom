@@ -75,6 +75,75 @@ def read_ndx(fname,section=None):
     return nums
 
 
+def sels2ulayers(sels,labels):
+    '''Create a universe merging the atom groups in sels (list) that belong to the same universe. Each one has the resname giving in labels (list)
+    
+    Input:
+     sels, list of AtomGroups: atom groups (selections) to be merged
+     labels, list of str     : resname to be given to the whole selection
+     
+    Output:
+     univ: Universe with merging the selections. Keeps the original resids
+    '''
+    
+    # Discard None elements
+    sels_filt   = [ i for i in sels if i is not None ]
+    labels_filt = [ j for i,j in zip(sels,labels) if i is not None ]
+
+    sel = sels_filt[0]
+    for selection in sels_filt[1:]:
+        sel += selection
+    # Set labels in terms of resids
+    resnames = []
+    resids   = []
+    for label,selection in zip(labels_filt,sels_filt):
+        resids  += list(selection.residues.resids)
+        resnames+= [label]*selection.residues.n_residues
+    
+    # First recreate the resindex map from whole universe to reduced univ
+    # NOTE: this will only work for whole residues (if broken it will fail)
+    # RESINDICES
+    ind = 0
+    i_prev = sel.atoms.resindices[0]
+    resindices = [ind]
+    for i in sel.atoms.resindices[1:]:
+        if i != i_prev:
+            ind += 1
+        resindices.append(ind)
+        i_prev = i
+    # SEGINDICES (mapping for residues)
+    ind = 0
+    i_prev = sel.residues.segids[0]
+    segindices = [ind]
+    for i in sel.residues.resindices[1:]:
+        if i != i_prev:
+            ind += 1
+        segindices.append(ind)
+        i_prev = i
+
+    # Create new universe
+    univ = MDAnalysis.Universe.empty(sel.n_atoms,
+                                     n_residues=sel.n_residues,
+                                     n_segments=sel.n_segments,
+                                     trajectory=True,
+                                     residue_segindex=segindices,
+                                     atom_resindex=resindices)
+    n_residues = sel.residues.n_residues
+
+    # Load topology attributes
+    univ.add_TopologyAttr('name',sel.atoms.names)
+    univ.add_TopologyAttr('type',sel.atoms.types)
+    univ.add_TopologyAttr('resname', resnames)
+    univ.add_TopologyAttr('resid', resids)
+    univ.add_TopologyAttr('segid', sel.segments.segids)
+    univ.add_TopologyAttr('segid', sel.segments.segids)
+    # And coordinates
+    univ.atoms.positions = sel.atoms.positions
+    univ.dimensions = sel.dimensions
+    
+    return univ
+
+
 def write_oniom(atomsQM,atomsMM,atomsPC,
                 unit=sys.stdout,
                 mem='2gb',nproc=16,chk='snap.chk',
@@ -234,25 +303,9 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
         
 def write_oniom_gro(atomsQM,atomsMM,atomsPC,grofile,vmd_visualization=True):
     
-    AllLayers = atomsQM.copy()
-    # Setting this resnames leads to an error due to
-    # a strange conflict with atomsPC (this is not
-    # observed e.g. when atomsPC has updating=False)
-    # We comment this for the moment, but it'd be better
-    # to understand why the error occurs
-    #AllLayers.residues.resnames = 'QML'
+    AllLayers = sels2ulayers([atomsQM,atomsMM,atomsPC],['QML','MML','PCL'])
     
-    if atomsMM:
-        Layer = atomsMM.copy()
-        Layer.residues.resnames = 'MML'
-        AllLayers += Layer.copy()
-        
-    if atomsPC:
-        Layer = atomsPC.copy()
-        Layer.residues.resnames = 'PCL'
-        AllLayers += Layer.copy()
-    
-    AllLayers.write(grofile)
+    AllLayers.atoms.write(grofile)
     
     if vmd_visualization:
         with open('viewLayers.vmd','w') as f:
