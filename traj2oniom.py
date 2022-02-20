@@ -6,54 +6,33 @@ import sys
 import re
 
 
-def atname2element(name,resname):
-    # This wont work for Nb...
+def atname2element(name,mass):
+    
+    import qcelemental as qcel
+    
+    # Now uses masses to confirm the name assigment
 
-    import string
+    # Name from mass
+    masses = np.array([ qcel.periodictable.to_mass(i) for i in range(118) ])
+    # Find element with closer mass and compare with input name
+    name_found = False
+    while not name_found:
+        Z = (np.abs(masses - mass)).argmin()
+        if abs(masses[Z]-mass) > 10:
+            print('Name not found. Returning input')
+            return name
+        name_qcel = qcel.periodictable.to_E(Z)
+        if len(name_qcel)>len(name):
+            # This name is not possible: skip picking from masses
+            masses[Z] = -1.0
+        elif name_qcel.upper() == name[:len(name_qcel)].upper():
+            name_found = True
+        else:
+            # This name is not possible: skip picking from masses
+            masses[Z] = -1.0
+            
+    return name_qcel
 
-    # Manage C-labels and CA, CL, CS
-    if   resname.upper() == 'CA' and name.upper() == 'CA':
-        name = 'Ca'
-    elif resname.upper() == 'CL':# and name.upper() == 'CL':
-        name = 'Cl'
-    elif resname.upper() == 'CS':# and name.upper() == 'CS':
-        name = 'Cs'
-    elif name.upper()[0] == 'C':
-        name = 'C'
-    # Manage N-labels
-    if   resname.upper() == 'NA' and name.upper() == 'NA':
-        name = 'Na'
-    elif name.upper()[0] == 'N':
-        name = 'N'
-    # Manage solvent
-    if   resname.upper() == 'SOL' and name.upper() == 'HO':
-        name = 'H'
-    elif resname.upper() == 'HOH' and name.upper() == 'HO':
-        name = 'H'
-    elif resname.upper() == 'WAT' and name.upper() == 'HO':
-        name = 'H'
-    elif resname.upper() == 'MET' and name.upper() == 'HO':
-        name = 'H'
-    elif resname.upper() == 'ETH' and name.upper() == 'HO':
-        name = 'H'
-    if   resname.upper() == 'SOL' and name.upper() == 'OH':
-        name = 'O'
-    elif resname.upper() == 'HOH' and name.upper() == 'OH':
-        name = 'O'
-    elif resname.upper() == 'WAT' and name.upper() == 'OH':
-        name = 'O'
-    elif resname.upper() == 'MET' and name.upper() == 'OH':
-        name = 'O'
-    elif resname.upper() == 'ETH' and name.upper() == 'OH':
-        name = 'O'
-    # Unambiguous labels
-    if name.upper() == 'HC':
-        name = 'H'
-    # Erase numbers and extrange chars
-    # (from: https://bytes.com/topic/python/answers/850562-finding-all-numbers-string-replacing)
-    name = re.sub('[%s]' % string.digits, '', name)
-
-    return name
 
 def read_ndx(fname,section=None):
     with open(fname) as f:
@@ -151,8 +130,7 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
                 title='Gaussian input from snapshot',FFfile=None,
                 linking_atom='H-H-0.1',
                 keep_traj_order=False,
-                use_computed_charges=False,
-                fix_atomnames=False):
+                use_computed_charges=False):
 
     # Preliminary checks
     # Only ONIOM when atomsMM are specified
@@ -238,14 +216,10 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
     for atom in atomsQMMM:
         # High layer
         if atom in atomsQM:
-            if fix_atomnames:
-                atname=atname2element(atom.name,atom.resname)
-            else:
-                atname=atom.name
             if atomsMM:
-                atomlabel='%s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)))
+                atomlabel='%s'%(atom.name+'-'+atom.type+'-'+str(round(atom.charge,5)))
             else:
-                atomlabel='%s'%(atname)
+                atomlabel='%s'%(atom.name)
             print('%-20s %10.5f %10.5f %10.5f %s'%(atomlabel,*atom.position,hl_flag),file=unit)
         # Low layer
         else:
@@ -255,11 +229,7 @@ def write_oniom(atomsQM,atomsMM,atomsPC,
                 ll_flag = 'L '+linking_atom+' '+str(i2)
             else:
                 ll_flag = 'L'
-            if fix_atomnames:
-                atname=atname2element(atom.name,atom.resname)
-            else:
-                atname=atom.name
-            print('%-20s %10.5f %10.5f %10.5f %s'%(atname+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,ll_flag),file=unit) 
+            print('%-20s %10.5f %10.5f %10.5f %s'%(atom.name+'-'+atom.type+'-'+str(round(atom.charge,5)),*atom.position,ll_flag),file=unit) 
             
     if atomsMM:
         # Generate and print connectivity
@@ -357,6 +327,7 @@ def exclusive_selection(u,selection,ExclusionGroup):
 
 if __name__ == "__main__":
     import argparse
+    import warnings
 
     # Input parser. Set flags
     parser = argparse.ArgumentParser(description='Generate ONIOM inputs from Gromacs trajectory.')
@@ -364,7 +335,7 @@ if __name__ == "__main__":
     parser.add_argument('-f_fmt',metavar='trr',help='Format of trajectory file',required=False)
     parser.add_argument('-s',metavar='file.tpr',help='Binary topoly file',required=True)
     parser.add_argument('-s_fmt',metavar='tpr',help='Format of topoly file',required=False)
-    parser.add_argument('-selQM',metavar='select_string',help='Selection command for the QM layer',default=None)
+    parser.add_argument('-selQM',metavar='select_string',help='Selection command for the QM layer',default=None,required=True)
     parser.add_argument('-selMM',metavar='select_string',help='Selection command for the MM layer',default=None)
     parser.add_argument('-selPC',metavar='select_string',help='Selection command for the PC layer',default=None)
     parser.add_argument('-indQM',metavar='file.ndx',help='Index file for the QM layer',default=None)
@@ -383,10 +354,14 @@ if __name__ == "__main__":
     parser.add_argument('-FF',metavar='file.prm',help='FF file into be added to Gaussian input',default=None)
     parser.add_argument('-writeGRO',action='store_true',help='Write gro file to check layers',default=False)
     parser.add_argument('-nowrap',action='store_true',help='Skip wrapping the layers get a compact representation',default=False)
+    parser.add_argument('-compact',action='store_true', help="Deprecated option to make system compact (now is the default)",default=False)
     parser.add_argument('-keep',action='store_true',help='Keep atom ordering from trajectory (instead of reordering QM then MM)',default=False)
     parser.add_argument('-fixnames',action='store_true',help='Try to convert atomnames into element names (WARNING: this might work unexpectedly)',default=False)
     # Parse input
     args = parser.parse_args()
+
+    if args.compact:
+        warnings.warn("Argument -compact is deprecated and is *ignored*.")
 
     # Get topology and coordinates
     u = MDAnalysis.Universe(args.s,args.f,topology_format=args.s_fmt,format=args.f_fmt)
@@ -460,7 +435,13 @@ if __name__ == "__main__":
             raise BaseException("Error setting PC layer. Check index file")
     else:
         layerPC = MDAnalysis.AtomGroup([],u)
-
+        
+    
+    # Fix names if requested (do on universe only once)
+    if args.fixnames:
+        for atom in u.atoms:
+            atom.name = atname2element(atom.name,atom.mass)
+    
     
     # Set some defaults to slice the traj
     if args.b==-1.:
@@ -520,8 +501,7 @@ if __name__ == "__main__":
                     chargemult=args.chargemult,
                     linking_atom=args.la,
                     keep_traj_order=args.keep,
-                    use_computed_charges=args.computeQ,
-                    fix_atomnames=args.fixnames)
+                    use_computed_charges=args.computeQ)
         f.close()
         files_gen = fname
         if args.writeGRO:
