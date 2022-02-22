@@ -68,7 +68,7 @@ def read_ndx(fname, section=None):
     return nums
 
 
-def sels2ulayers(sels, labels):
+def selections2universelayer(sels, labels):
     """Create a universe merging the atom groups in sels (list) that belong to the same universe. Each one has the resname giving in labels (list)
 
     Input:
@@ -326,7 +326,8 @@ def write_oniom(
 
 def write_oniom_gro(atomsQM, atomsMM, atomsPC, grofile, vmd_visualization=True):
 
-    AllLayers = sels2ulayers([atomsQM, atomsMM, atomsPC], ["QML", "MML", "PCL"])
+    AllLayers = selections2universelayer([atomsQM, atomsMM, atomsPC], 
+                                         ["QML", "MML", "PCL"])
 
     AllLayers.atoms.write(grofile)
 
@@ -523,6 +524,11 @@ if __name__ == "__main__":
     u = MDAnalysis.Universe(
         args.s, args.f, topology_format=args.s_fmt, format=args.f_fmt
     )
+    
+    # Check if we have box information. If not, wrap is not possible
+    if (not args.nowrap) and np.linalg.norm(u.dimensions) == 0.:
+        print('Note: no information about the box, setting -nowrap')
+        args.nowrap = True
 
     # Selections
     # -- QM layer --
