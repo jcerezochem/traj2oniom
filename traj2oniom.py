@@ -5,6 +5,27 @@ import numpy as np
 import sys
 import re
 
+def write_g96(atnames,resnames,xyz,vxyz,fname,title):
+    natoms = int(len(xyz)/3)
+    with open(fname,'w') as f:
+        print('TITLE',file=f)
+        print(title,file=f)
+        print('END',file=f)
+        print('POSITION',file=f)
+        for i in range(natoms):
+            j = 3*i
+            print(f'    1 {resnames[i]:<4}  {atnames[i]:<4} {i+1:>7} {xyz[j]/10.:14.9f} {xyz[j+1]/10.:14.9f} {xyz[j+2]/10.:14.9f}',file=f)
+        print('END',file=f)
+        if vxyz != None:
+            print('VELOCITY',file=f)
+            for i in range(natoms):
+                j = 3*i
+                print(f'    1 {resnames[i]:<4}  {atnames[i]:<4} {i+1:>7} {vxyz[j]/10.:14.9f} {vxyz[j+1]/10.:14.9f} {vxyz[j+2]/10.:14.9f}',file=f)
+            print('END',file=f)
+        print('BOX',file=f)
+        print('    0.000000000    0.000000000    0.000000000',file=f)
+        print('END',file=f)
+
 
 def atname2element(name, mass):
     """Turn atomname from MD topology into element name, using the mass to guide to assigment
@@ -449,7 +470,50 @@ def write_oniom_gro(atomsQM, atomsMM, atomsPC, grofile, vmd_visualization=True):
         with open("viewLayers.vmd", "w") as f:
             print(
                 """# Use this as:
-#  vmd GROFILE.gro -e viewLayers.vmd
+#  vmd FILE -e viewLayers.vmd
+mol delrep 0 top
+# QM layer
+mol representation CPK 1.200000 0.600000 12.000000 12.000000
+mol color Name
+mol selection {not resname MML PCL}
+mol material Opaque
+mol addrep top
+# MM layer
+mol representation Licorice 0.050000 12.000000 12.000000
+mol color Name
+mol selection {resname MML}
+mol material Opaque
+mol addrep top
+# Point charges
+mol representation Points 3.000000
+mol color Name
+mol selection {resname PCL}
+mol material Opaque
+mol addrep top""",
+                file=f,
+            )
+
+    return None
+
+def write_oniom_g96(atomsQM, atomsMM, atomsPC, g96file, vmd_visualization=True):
+
+    AllLayers = selections2universelayer([atomsQM, atomsMM, atomsPC], 
+                                         ["QML", "MML", "PCL"])
+    # Get data from AllLayers object
+    atnames = AllLayers.atoms.names
+    resnames= AllLayers.atoms.resnames
+    xyz     = AllLayers.atoms.positions.flatten()
+    vxyz    = None
+    title   = 'ONIOM layers with g96 format'
+
+    # Write
+    write_g96(atnames,resnames,xyz,vxyz,g96file,title)
+
+    if vmd_visualization:
+        with open("viewLayers.vmd", "w") as f:
+            print(
+                """# Use this as:
+#  vmd FILE -e viewLayers.vmd
 mol delrep 0 top
 # QM layer
 mol representation CPK 1.200000 0.600000 12.000000 12.000000
@@ -623,6 +687,12 @@ if __name__ == "__main__":
         "-writeGRO",
         action="store_true",
         help="Write gro file to check layers",
+        default=False,
+    )
+    parser.add_argument(
+        "-writeG96",
+        action="store_true",
+        help="Write g96 file to check layers",
         default=False,
     )
     parser.add_argument(
@@ -853,6 +923,21 @@ if __name__ == "__main__":
                 vmd_visualization=True,
             )
             files_gen += " " + grofile + " viewLayers.vmd"
+        if args.writeG96:
+            if args.nzero > 0:
+                g96file = fmt % (args.ob, istp, args.osfx, "g96")
+            else:
+                g96file = fmt % (args.ob, args.osfx, "g96")
+            write_oniom_g96(
+                layerQM,
+                layerMM - layerQM,
+                layerPC - layerMM - layerQM,
+                g96file,
+                vmd_visualization=True,
+            )
+            files_gen += " " + g96file
+            if "viewLayers.vmd" not in files_gen:
+                files_gen += " viewLayers.vmd"
         # Indicate all files generated
         print("%s generated" % files_gen)
         # Prepare next iteration
