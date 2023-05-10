@@ -22,7 +22,10 @@ def atname2element(name, mass):
      Requires qcelemental
      """
 
-    import qcelemental as qcel
+    try:
+        import qcelemental as qcel
+    except:
+        raise ImportError('The option -fixnames requires the module qcelemental, which is not found')
 
     # Now uses masses to confirm the name assigment
 
@@ -137,6 +140,117 @@ def selections2universelayer(sels, labels):
     univ.dimensions = sel.dimensions
 
     return univ
+
+def tune_nres_layer(u,sel,nres):
+    """Change layer selection until a number of requested residues is reached
+    The selection command should contain a tunable distance creterium
+
+    Input:
+     u, MDAnalysis.Universe  : universe representing the whole system
+     sels, str               : selection command
+     nres, int               : requested number of residues
+
+    Output:
+     layer: selection from universe with requested number of residues
+    """
+
+    def get_r_from_sel(sel):
+
+        if any([ x in sel for x in [ 'around', 'spzone' ] ]):
+            a = [ x in sel for x in [ 'around', 'spzone' ] ]
+            keywrd = [ 'around', 'spzone' ][a.index(True)]
+            r = float(sel.split(keywrd)[-1].split()[0])
+
+        elif any([ x in sel for x in [ 'sphlayer', 'isolayer' ] ]):
+            a = [ x in sel for x in [ 'sphlayer', 'isolayer' ] ]
+            keywrd = [ 'sphlayer', 'isolayer' ][a.index(True)]
+            r1 = float(sel.split(keywrd)[-1].split()[0])
+            r  = float(sel.split(keywrd)[-1].split()[1])
+
+        elif any([ x in sel for x in [ 'cylayer', 'cyzone', 'point', 'prop' ] ]):
+            a = [ x in sel for x in [ 'cylayer', 'cyzone', 'point', 'prop' ] ]
+            keywrd = [ 'cylayer', 'cyzone', 'point', 'prop' ][a.index(True)]
+            raise BaseException(f'Constrained selection not yet implemented with {keywrd}')
+
+        else:
+            print(sel)
+            raise BaseException('Selection command does not contain any tunable distance')
+
+        return r
+
+
+    def update_sel(sel,r_new):
+
+        if any([ x in sel for x in [ 'around', 'spzone' ] ]):
+            a = [ x in sel for x in [ 'around', 'spzone' ] ]
+            keywrd = [ 'around', 'spzone' ][a.index(True)]
+            r = float(sel.split(keywrd)[-1].split()[0])
+            sel_part1 = sel.split(keywrd)[0]
+            sel_part2 = ' '.join(sel.split(keywrd)[-1].split()[1:])
+            sel_ = ' '.join([sel_part1, keywrd, str(r_new), sel_part2])
+
+        elif any([ x in sel for x in [ 'sphlayer', 'isolayer' ] ]):
+            a = [ x in sel for x in [ 'sphlayer', 'isolayer' ] ]
+            keywrd = [ 'sphlayer', 'isolayer' ][a.index(True)]
+            r1 = float(sel.split(keywrd)[-1].split()[0])
+            r  = float(sel.split(keywrd)[-1].split()[1])
+            sel_part1 = sel.split(keywrd)[0]
+            sel_part2 = ' '.join(sel.split(keywrd)[-1].split()[2:])
+            sel_ = ' '.join([sel_part1, keywrd, str(r1), str(r_new), sel_part2])
+
+        elif any([ x in sel for x in [ 'cylayer', 'cyzone', 'point', 'prop' ] ]):
+            a = [ x in sel for x in [ 'cylayer', 'cyzone', 'point', 'prop' ] ]
+            keywrd = [ 'cylayer', 'cyzone', 'point', 'prop' ][a.index(True)]
+            raise BaseException(f'Constrained selection not yet implemented with {keywrd}')
+
+        return sel_
+
+    # Main
+    layer = u.select_atoms(sel,updating=True)
+    r = get_r_from_sel(sel)
+    nres_layer = layer.n_residues
+    nres_prev = nres_layer
+    # Set range
+    r0 = r
+    if nres_layer > nres:
+        while nres_layer > nres:
+            r /= 1.1
+            sel = update_sel(sel,r)
+            layer = u.select_atoms(sel,updating=True)
+            nres_layer = layer.n_residues
+        rmin = r
+        rmax = r0
+    elif nres_layer < nres:
+        while nres_layer < nres:
+            r *= 1.1
+            sel = update_sel(sel,r)
+            layer = u.select_atoms(sel,updating=True)
+            nres_layer = layer.n_residues
+        rmin = r0
+        rmax = r
+    # Iterate to get nres
+    ncycles = 0
+    while nres_layer != nres:
+        ncycles += 1
+        if ncycles > 200:
+            break
+        r = 0.5*(rmax + rmin)
+        sel = update_sel(sel,r)
+        layer = u.select_atoms(sel,updating=True)
+        nres_layer = layer.n_residues
+        if nres_layer > nres:
+            rmax = r
+        else:
+            rmin = r
+
+    if nres_layer != nres:
+        print(f'Requested: {nres}\nObtained: {nres_layer}')
+        raise BaseException('Targer number of residues could not be reached')
+
+    print(f' r(original) = {r0}')
+    print(f' r(updated)  = {r}')
+
+    return layer
 
 
 def write_oniom(
@@ -406,16 +520,37 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
+        "-nresQM",
+        metavar=-1,
+        help="Impose this number of residues in this layer",
+        type=int,
+        default=-1,
+    )
+    parser.add_argument(
         "-selMM",
         metavar="select_string",
         help="Selection command for the MM layer",
         default=None,
     )
     parser.add_argument(
+        "-nresMM",
+        metavar=-1,
+        help="Impose this number of residues in this layer",
+        type=int,
+        default=-1,
+    )
+    parser.add_argument(
         "-selPC",
         metavar="select_string",
         help="Selection command for the PC layer",
         default=None,
+    )
+    parser.add_argument(
+        "-nresPC",
+        metavar=-1,
+        help="Impose this number of residues in this layer",
+        type=int,
+        default=-1,
     )
     parser.add_argument(
         "-indQM", metavar="file.ndx", help="Index file for the QM layer", default=None
@@ -537,8 +672,8 @@ if __name__ == "__main__":
             layerQM = u.select_atoms(args.selQM, updating=True)
         except:
             raise BaseException(
-                "Error setting QM layer. Maybe due to missplells in selection keyword"
-            )
+                "Error setting QM layer. Maybe due to missplells in selection keyword")
+            
     elif args.indQM:
         atoms_num = read_ndx(args.indQM)
         # Build selection kwd
@@ -625,6 +760,11 @@ if __name__ == "__main__":
     else:
         dt = args.dt
 
+    # Number of residues per layer (<0 means leave do not use constraint)
+    nres_QM = args.nresQM 
+    nres_MM = args.nresMM
+    nres_PC = args.nresPC 
+
     istp = 0
     for conf in u.trajectory:
         # Determine whether using the frame or not
@@ -637,6 +777,30 @@ if __name__ == "__main__":
             continue
         elif conf.time < tini:
             continue
+        
+        # Constrain number of residues per layer if requested
+        if nres_QM > 0:
+            print(f'Tuning QM layer to {nres_QM} residues')
+            layerQM = tune_nres_layer(u,args.selQM,nres_QM)
+        if nres_MM > 0:
+            print(f'Tuning MM layer to {nres_MM} residues')
+            # if layers are overlaping, take that into account
+            resQM = set(layerQM.residues.resids)
+            resMM = set(layerMM.residues.resids)
+            nres = nres_MM + len(resQM & resMM)
+            layerMM = tune_nres_layer(u,args.selMM,nres)
+        if nres_PC > 0:
+            print(f'Tuning PC layer to {nres_PC} residues')
+            # if layers are overlaping, take that into account
+            resQM = set(layerQM.residues.resids)
+            if layerMM:
+                resMM = set(layerMM.residues.resids)
+                resQMMM = resQM | resMM
+            else:
+                resQMMM = resQM
+            resPC = set(layerPC.residues.resids)
+            nres = nres_PC + len(resQMMM & resPC)
+            layerPC = tune_nres_layer(u,args.selPC,nres)
 
         # Default is trying to generate a compact representation by wrapping all layers
         if not args.nowrap:
