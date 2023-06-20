@@ -617,6 +617,12 @@ if __name__ == "__main__":
         default=-1,
     )
     parser.add_argument(
+        "-selCoM",
+        metavar="select_string",
+        help="Selection command for the CoM group",
+        default=None,
+    )
+    parser.add_argument(
         "-indQM", metavar="file.ndx", help="Index file for the QM layer", default=None
     )
     parser.add_argument(
@@ -624,6 +630,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-indPC", metavar="file.ndx", help="Index file for the PC layer", default=None
+    )
+    parser.add_argument(
+        "-indCoM", metavar="file.ndx", help="Index file for the CoM group", default=None
     )
     parser.add_argument(
         "-la",
@@ -719,6 +728,12 @@ if __name__ == "__main__":
         help="Try to convert atomnames into element names (WARNING: this might work unexpectedly)",
         default=False,
     )
+    parser.add_argument(
+        "-use_atmass",
+        action="store_true",
+        help="Use atomic masses from QCElemental instead of average mass weights",
+        default=False,
+    )
     # Parse input
     args = parser.parse_args()
 
@@ -810,11 +825,44 @@ if __name__ == "__main__":
             raise BaseException("Error setting PC layer. Check index file")
     else:
         layerPC = MDAnalysis.AtomGroup([], u)
+        
+    # -- CoM group --
+    if args.selCoM:
+        try:
+            groupCoM = u.select_atoms(args.selCoM, updating=True)
+        except:
+            raise BaseException(
+                "Error setting CoM group. Maybe due to missplells in selection keyword"
+            )
+    elif args.indCoM:
+        atoms_num = read_ndx(args.indCoM)
+        # Build selection kwd
+        selection = "bynum "
+        for num in atoms_num:
+            selection += str(num) + " "
+        # Apply selection (static)
+        try:
+            groupCoM = u.select_atoms(selection, updating=False)
+        except:
+            raise BaseException("Error setting CoM group. Check index file")
+    else:
+        # return an empty AtomGroup (acts as None type within if clauses)
+        groupCoM = MDAnalysis.AtomGroup([], u)
+        
 
     # Fix names if requested (do on universe only once)
     if args.fixnames:
         for atom in u.atoms:
             atom.name = atname2element(atom.name, atom.mass)
+            
+    # Set atomic masses (instead of average mass weights) for groupCoM
+    if groupCoM and args.use_atmass:
+        try:
+            import qcelemental as qcel
+        except:
+            raise ImportError('The option -use_atmass requires the module qcelemental, which is not found')
+        for atom in groupCoM:
+            atom.mass = qcel.periodictable.to_mass(atom.name)
 
     # Set some defaults to slice the traj
     if args.b == -1.0:
@@ -877,6 +925,10 @@ if __name__ == "__main__":
             # Get box dimensions (assume rect box)
             box = u.dimensions[:3]
             compact_atoms(box, layerQM, layerMM, layerPC)
+            
+        if groupCoM:
+            com = groupCoM.center_of_mass()
+            u.atoms.translate(-com)
 
         # Write Gaussian input
         if args.nzero > 0:
