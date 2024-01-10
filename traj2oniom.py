@@ -359,7 +359,7 @@ def write_oniom(
         atomsQMMM.atoms.ix_array.sort()
 
     # Initial preps for QMMM systems
-    if atomsMM:
+    if atomsMM or use_ff_atoms:
         # We first need a map between traj index and com index
         map_index = {}
         i = 0
@@ -408,7 +408,7 @@ def write_oniom(
                 file=unit,
             )
 
-    if atomsMM:
+    if atomsMM or use_ff_atoms:
         # Generate and print connectivity
         print("", file=unit)
         for atom in atomsQMMM.atoms:
