@@ -289,6 +289,7 @@ def write_oniom(
     linking_atom="H-H-0.1",
     keep_traj_order=False,
     use_computed_charges=False,
+    use_ff_atoms=True
 ):
 
     # Preliminary checks
@@ -379,7 +380,7 @@ def write_oniom(
     for atom in atomsQMMM:
         # High layer
         if atom in atomsQM:
-            if atomsMM:
+            if atomsMM or use_ff_atoms:
                 atomlabel = "%s" % (
                     atom.name + "-" + atom.type + "-" + str(round(atom.charge, 5))
                 )
@@ -734,6 +735,12 @@ if __name__ == "__main__":
         help="Use atomic masses from QCElemental instead of average mass weights",
         default=False,
     )
+    parser.add_argument(
+        "-no_ff_atoms",
+        action="store_true",
+        help="Do not write FF atomic data to com",
+        default=False,
+    )
     # Parse input
     args = parser.parse_args()
 
@@ -838,6 +845,7 @@ if __name__ == "__main__":
         atoms_num = read_ndx(args.indCoM)
         # Build selection kwd
         selection = "bynum "
+        # selection += " ".join([str(x) for x in atoms_num])
         for num in atoms_num:
             selection += str(num) + " "
         # Apply selection (static)
@@ -959,6 +967,7 @@ if __name__ == "__main__":
             linking_atom=args.la,
             keep_traj_order=args.keep,
             use_computed_charges=args.computeQ,
+            use_ff_atoms=not args.no_ff_atoms
         )
         f.close()
         files_gen = fname
