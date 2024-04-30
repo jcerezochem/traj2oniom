@@ -330,8 +330,8 @@ def write_oniom(
             mmodel = str(1)
 
         # Update chargemult string
-        qreal = str(int(qreal))
-        qmodel = str(int(qmodel))
+        qreal = str(int(round(qreal,0)))
+        qmodel = str(int(round(qmodel,0)))
         chargemult = " ".join([qreal, mreal, qmodel, mmodel])
 
     # Write header
